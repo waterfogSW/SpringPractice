@@ -14,7 +14,7 @@ public class OrderApp {
         memberService.join(member);
 
         Member findMember = memberService.findMember(1L);
-        Order order = orderService.createOrder(1L, "itemA", 10000);
+        Order order = orderService.createOrder(1L, "itemA", 20000);
         System.out.println("order = " + order);
     }
 }

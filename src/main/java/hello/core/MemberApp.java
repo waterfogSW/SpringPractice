@@ -17,5 +17,4 @@ public class MemberApp {
         System.out.println("Member : " + member.getName());
         System.out.println("Find Member : " + findMember.getName());
     }
-
 }
