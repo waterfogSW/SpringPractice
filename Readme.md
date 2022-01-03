@@ -57,19 +57,21 @@ class MemberServiceTest {
 }
 ```
 
-### 역할과 구현의 분리 
+### 역할과 구현의 분리
+
 - OrderService
-  - OrderServiceImple
+    - OrderServiceImple
 - MemberRepository
-  - MemoryMemberRepository
-  - DbMemberRepository
+    - MemoryMemberRepository
+    - DbMemberRepository
 - DiscountPolicy
-  - FixDiscountPolicy
-  - RateDiscountPolicy
+    - FixDiscountPolicy
+    - RateDiscountPolicy
 
 역할과 구현을 분리하여 설계를 하면 역할에 대해 유연하게 구현 객체를 변경할 수 있게 된다.
 
-### 단위테스트 
+### 단위테스트
+
 - 스프링이나 다른 컨테이너의 도움 없이 순수한 자바코드를 통한 테스트
 - 프로그램이 방대해질수록 확인 작업이 느려지기 때문에 단위테스트가 중요하다.
 
@@ -82,7 +84,7 @@ class MemberServiceTest {
 ```java
 public class MemberServiceImple implements MemberService {
     private final MemberRepository memberRepository = new MemoryMemberRepository();
-    
+
 }
 ```
 
