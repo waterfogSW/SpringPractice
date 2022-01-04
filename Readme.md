@@ -79,6 +79,12 @@ class MemberServiceTest {
 
 ### OCP, DIP 원칙 준수를 위한 의존관계 해소
 
+`OrderServiceImple` 클래스가 `DiscountPolicy`라는 인터페이스에 의존하게 함으로써 유연한 설계가 가능하게 함.
+
+![image](https://user-images.githubusercontent.com/28651727/148065072-388899c0-dc14-43bd-a6f8-30cb7aceceff.png)
+
+고정할인 정책 `FixDiscountPolicy`와 정률 할인 정책 `RateDiscountPolicy`라는 구체 클래스는 `DiscountPolicy`라는 인터페이스를 구현함으로써 할인 정책 교체가 가능함.
+
 `MemberServiceImpl` 클래스가 `MemberRepository`인터페이스 뿐만 아니라 `MemoryMemberRepository`구체 클래스까지 의존하고 있다.
 
 ```java
