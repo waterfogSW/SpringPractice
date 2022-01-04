@@ -1,5 +1,18 @@
 # 스프링 핵심 원리 - 기본편
 
+## Section 0 : SOLID
+
+- SRP : 단일 책임 원칙(Single responsibility principle)
+    - 클래스를 변경해야 하는 이유는 오직 하나여야 한다.
+- OCP : 개방-폐쇄 원칙(Open/closed principle)
+    - 확장(상속)에는 열려있어야 하며, 변경에는 닫혀있어야 한다.
+- LSP : 리스코프 치환 원칙(Liskov substitution principle)
+    - 기반 클래스는 파생 클래스로 대체할 수 있어야 한다.
+- ISP : 인터페이스 분리 원칙(Interface segregation principle)
+    - 클라이언트는 구체 클래스가 아닌 추상 클래스(인터페이스)에 의존해야한다.
+- DIP : 의존관계 역전 원칙(Dependency inversion principle)
+    - 하나의 일반적인 인터페이스보다는 구체적인 여러 개의 인터페이스가 낫다.
+
 ## Section 1 : 객체 지향 설계와 스프링
 
 스프링은 DI(의존성주입)과 DI 컨테이너를 제공하여 다형성 + OCP,DIP를 가능하도록 지원한다. 클라이언트 코드의 변경 없이 기능을 확장 쉽게 부품을 교체하듯이 개발할 수 있다.
@@ -85,12 +98,14 @@ class MemberServiceTest {
 
 고정할인 정책 `FixDiscountPolicy`와 정률 할인 정책 `RateDiscountPolicy`라는 구체 클래스는 `DiscountPolicy`라는 인터페이스를 구현함으로써 할인 정책 교체가 가능함.
 
-`MemberServiceImpl` 클래스가 `MemberRepository`인터페이스 뿐만 아니라 `MemoryMemberRepository`구체 클래스까지 의존하고 있다.
-
 ```java
-public class MemberServiceImple implements MemberService {
-    private final MemberRepository memberRepository = new MemoryMemberRepository();
-
+public class OrderServiceImple implements OrderService {
+    //    private final DisountPolicy disountPolicy = new FixDiscountPolicy();
+    private final DisountPolicy disountPolicy = new FixDiscountPolicy(); // 구체클래스에 의존하기 때문에 OCP를 위반한다.
 }
 ```
+
+OCP란 확장에는 열려있고, 변경에는 닫혀있어야 한다는 원칙이다.
+
+
 
