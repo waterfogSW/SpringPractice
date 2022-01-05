@@ -3,15 +3,15 @@
 ## Section 0 : SOLID
 
 - SRP : 단일 책임 원칙(Single responsibility principle)
-    - 클래스를 변경해야 하는 이유는 오직 하나여야 한다.
+    - 한 클래스는 하나의 책임만 가져야 한다. 클래스를 변경해야 하는 이유는 오직 하나여야 한다.
 - OCP : 개방-폐쇄 원칙(Open/closed principle)
-    - 확장(상속)에는 열려있어야 하며, 변경에는 닫혀있어야 한다.
+    - 소프트웨어 요소는 확장에는 열려 있으나 변경에는 닫혀 있어야 한다
 - LSP : 리스코프 치환 원칙(Liskov substitution principle)
-    - 기반 클래스는 파생 클래스로 대체할 수 있어야 한다.
+    - 프로그램의 객체는 프로그램의 정확성을 깨뜨리지 않으면서 하위 타입의 인스턴스로 바꿀 수 있어야 한다
 - ISP : 인터페이스 분리 원칙(Interface segregation principle)
-    - 클라이언트는 구체 클래스가 아닌 추상 클래스(인터페이스)에 의존해야한다.
+    - 특정 클라이언트를 위한 인터페이스 여러 개가 범용 인터페이스 하나보다 낫다.
 - DIP : 의존관계 역전 원칙(Dependency inversion principle)
-    - 하나의 일반적인 인터페이스보다는 구체적인 여러 개의 인터페이스가 낫다.
+    - 추상화에 의존해야지, 구체화에 의존하면 안된다.
 
 ## Section 1 : 객체 지향 설계와 스프링
 
@@ -90,7 +90,7 @@ class MemberServiceTest {
 
 ## Section 3 : 객체지향 원리 적용
 
-### OCP, DIP 원칙 준수를 위한 의존관계 해소
+### OCP, DIP 원칙 위반 사례
 
 `OrderServiceImple` 클래스가 `DiscountPolicy`라는 인터페이스에 의존하게 함으로써 유연한 설계가 가능하게 함.
 
@@ -101,11 +101,53 @@ class MemberServiceTest {
 ```java
 public class OrderServiceImple implements OrderService {
     //    private final DisountPolicy disountPolicy = new FixDiscountPolicy();
-    private final DisountPolicy disountPolicy = new FixDiscountPolicy(); // 구체클래스에 의존하기 때문에 OCP를 위반한다.
+    private final DisountPolicy disountPolicy = new RateDiscountPolicy(); // 구체클래스에 의존하기 때문에 OCP를 위반한다.
 }
 ```
 
-OCP란 확장에는 열려있고, 변경에는 닫혀있어야 한다는 원칙이다.
+`OrderServiceImple`클래스는 겉으로는 `DiscountPolicy`클래스에 의존하는것으로 보이나 
+고정 할인 정책 `FixDiscountPolicy`에서 정률할인 정책 `RateDiscountPolicy`로 변경하기 위해서는 
+위와 같이 클라이언트 코드(`OrderServic eImple`)의 수정이 불가피 하다.
+
+결국 할인정책의 선택지가 2가지로 늘어났다는 점에서 확장에는 열려있으나 변경에는 닫혀있지 않은것으로, **OCP**를 위반한다.
+
+`OrderServiceImple`은 `DisountPolicy`인터페이스 뿐만 아니라 `FixDiscountPolicy`에도 의존하고 있다.
+구체화에 의존하므로 **DIP**를 위반한다.
+
+### AppConfig
+
+`AppConfig` : 애플리케이션 전체를 설정하고 구성하는 클래스. **구현 객체를 생성**하고 **연결**하는 책임을 가짐
+
+- **DIP**, **OCP**를 위반하는 `OrderServiceImple`과 `MemberServiceImple`이 인터페이스에만 의존하도록 생성자 구현
+- `AppConfig`는 애플리케이션의 실제 동작에 필요한 구현 객체를 생성. 
+- 객체 인스턴스의 참조를 **생성자를 통해 주입**
+  - `MemberServiceImple` -> `MemoryMemberRepository`
+  - `OrderServiceImple` -> `MemoryMemberRepository`, `FixDiscountPolicy`
+
+이를 통해 구체클래스 `MemberServiceImple`은 `MemberRepository`인터페이스에만 의존한다.(DIP를 준수한다)
+
+### SOLID 원칙 적용
+
+#### SRP : 단일 책임 원칙
+
+한 클래스는 하나의 책임만 가져야 한다.
+
+- 기존 클라이언트 객체는 직접 구현 객체를 생성하고 연결하고 실행하는 책임을 가지고 있었다.
+- 구현 객체를 생성하고 연결하는 책임을 `AppConfig`가 담당하게 함으로써 클라이언트 객체는 실행하는 책임만 가짐.
+
+#### DIP : 의존관계 역전 원칙
+
+프로그래머는 추상화에 의존해야지 구체화에 의존하면 안된다.
+
+- 기존 클라이언트 코드 `OrderServiceImple`은 `DiscountPolicy`라는 추상 뿐만 아니라, `FixDiscountPolicy`라는 구체화에도 의존하였다.
+- `AppConfig`가 `OrderServiceImple`의 생성자를 통해 의존관계를 주입함으로써 인터페이스에만 의존하도록 설계를 변경. DIP 원칙을 준수하도록 했다.
+
+#### OCP : 개방 폐쇄 원칙
+
+확장에는 열려있으나, 변경에는 닫혀있어야 한다.
+
+- 애플리케이션을 사용 영역과 구성영역(`AppConfig`)으로 나누었다.
+- `AppConfig`가 의존관계를 변경하므로, 클라이언트 코드를 변경하지 않아도 된다.
 
 
 
