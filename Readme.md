@@ -105,24 +105,22 @@ public class OrderServiceImple implements OrderService {
 }
 ```
 
-`OrderServiceImple`클래스는 겉으로는 `DiscountPolicy`클래스에 의존하는것으로 보이나 
-고정 할인 정책 `FixDiscountPolicy`에서 정률할인 정책 `RateDiscountPolicy`로 변경하기 위해서는 
-위와 같이 클라이언트 코드(`OrderServic eImple`)의 수정이 불가피 하다.
+`OrderServiceImple`클래스는 겉으로는 `DiscountPolicy`클래스에 의존하는것으로 보이나 고정 할인 정책 `FixDiscountPolicy`에서 정률할인
+정책 `RateDiscountPolicy`로 변경하기 위해서는 위와 같이 클라이언트 코드(`OrderServic eImple`)의 수정이 불가피 하다.
 
 결국 할인정책의 선택지가 2가지로 늘어났다는 점에서 확장에는 열려있으나 변경에는 닫혀있지 않은것으로, **OCP**를 위반한다.
 
-`OrderServiceImple`은 `DisountPolicy`인터페이스 뿐만 아니라 `FixDiscountPolicy`에도 의존하고 있다.
-구체화에 의존하므로 **DIP**를 위반한다.
+`OrderServiceImple`은 `DisountPolicy`인터페이스 뿐만 아니라 `FixDiscountPolicy`에도 의존하고 있다. 구체화에 의존하므로 **DIP**를 위반한다.
 
 ### AppConfig
 
 `AppConfig` : 애플리케이션 전체를 설정하고 구성하는 클래스. **구현 객체를 생성**하고 **연결**하는 책임을 가짐
 
 - **DIP**, **OCP**를 위반하는 `OrderServiceImple`과 `MemberServiceImple`이 인터페이스에만 의존하도록 생성자 구현
-- `AppConfig`는 애플리케이션의 실제 동작에 필요한 구현 객체를 생성. 
+- `AppConfig`는 애플리케이션의 실제 동작에 필요한 구현 객체를 생성.
 - 객체 인스턴스의 참조를 **생성자를 통해 주입**
-  - `MemberServiceImple` -> `MemoryMemberRepository`
-  - `OrderServiceImple` -> `MemoryMemberRepository`, `FixDiscountPolicy`
+    - `MemberServiceImple` -> `MemoryMemberRepository`
+    - `OrderServiceImple` -> `MemoryMemberRepository`, `FixDiscountPolicy`
 
 이를 통해 구체클래스 `MemberServiceImple`은 `MemberRepository`인터페이스에만 의존한다.(DIP를 준수한다)
 
@@ -149,5 +147,67 @@ public class OrderServiceImple implements OrderService {
 - 애플리케이션을 사용 영역과 구성영역(`AppConfig`)으로 나누었다.
 - `AppConfig`가 의존관계를 변경하므로, 클라이언트 코드를 변경하지 않아도 된다.
 
+### IoC, DI, 컨테이너
 
+> **프레임 워크 vs 라이브러리**
+> - 프레임 워크는 내가 작성한 코드를 제어하고 대신 실행한다.
+> - 반면 내가 작성한 코드가 직접 제어의 흐름을 담당하면 라이브러리이다.
+
+#### IoC : 제어의 역전
+
+- `AppConfig`가 구현 객체를 생성하고 연결하는 역할을 함으로써 기존 구현 객체는 자신의 로직을 실행하는 역할만 담당한다.
+- 즉 프로그램의 제어흐름을 `AppConfig`가 가져간것으로 볼 수 있다. 이렇듯 제어흐름을 구현 객체가 아닌, 외부에서 관리하는 것을 제어의 역전 이라 한다.
+
+#### DI : 의존 관계 주입
+
+정적 클래스 의존관계
+
+- 클래스가 사용하는 import코드만으로도 의존 관계를 쉽게 파악할 수 있다.
+
+동적인 객체 인스턴스 의존관계
+
+- 애플리케이션 **실행 시점(런타임)**에 외부에서 실제 구현 객체를 생성하고 클라이언트에 전달해서 클라이언트와 서버의 실제 의존관계가 연결되는것을 **의존관계 주입** 이라 한다.
+- 의존 관계 주입을 사용하면 클라이언트 코드를 변경하지 않고, 클라이언트가 호출하는 대상의 타입 인스턴스를 변경할 수 있다.
+
+#### IoC 컨테이너, DI컨테이너
+
+- AppConfig 처럼 객체를 생성하고 관리하면서 의존관계를 연결해 주는 것을 IoC 컨테이너 또는 DI 컨테이너라 한다.
+- 의존관계 주입에 초점을 맞추어 최근에는 주로 DI 컨테이너라 한다.
+- 어샘블러, 오브젝트 팩토리 등으로 불리기도 한다.
+
+### 스프링으로의 전환
+
+`AppConfig`
+
+```java
+
+@Configuration // 설정 구성
+public class AppConfig {
+    @Bean // 스프링 컨테이너에 스프링 빈으로 등록
+    public MemberService memberService() {
+        return new MemberServiceImpl(memberRepository());
+    }
+    //...
+}
+```
+
+- `@Configuration` : 설정 구성
+- `@Bean` : 스프링 컨테이너에 스프링 빈으로 등록
+
+```java
+public class OrderApp {
+    public static void main(String[] args) {
+        ApplicationContext applicationContext = new AnnotationConfigApplicationContext(AppConfig.class);
+        MemberService memberService = applicationContext.getBean("memberService", MemberService.class);
+        OrderService orderService = applicationContext.getBean("orderService", OrderService.class);
+        // ...
+    }
+}
+```
+
+- `AnnotationConfigApplicationContext` : 스프링 컨테이너 불러오기
+  - 스프링 컨테이너는 `@Configuration` 어노테이션이 붙은 클래스를 설정 정보로 사용한다.
+  - 여기서 `@Bean`이라 적힌 메서드를 모두 호출해서 반환된 객체를 스프링 컨테이너에 등록
+  - 스프링 컨테이너에 등록된 객체를 스프링 빈 이라 함.
+- `.getBean()`을 통해 스프링 빈을 불러올 수 있다. 
 
