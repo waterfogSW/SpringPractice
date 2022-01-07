@@ -226,9 +226,9 @@ public class OrderApp {
 
 2. 스프링 빈 등록
 - 설정정보를 통해 스프링 빈을 등록한다.
-```java
+```
 @Bean
-public MemberRepository memberRepository(){...}
+public MemberRepository memberRepository(){}
 ```
 - 빈의 이름은 `@Bean(name="memberService2")`와 같이 이름을 직접 부여할 수도 있다.
 - 빈의 이름을 직접부여할 경우 항상 **다른 이름**을 부여해야 한다.
@@ -355,6 +355,109 @@ public class ApplicationContextSameBeanFindTest {
         }
     }
 }
+```
+
+### 스프링 빈 조회 : 상속관계
+
+- 부모타입으로 조회하면, 자식 타입도 함께 조회된다. 
+- 모든 객체의 최고 부모인 `Object`타입으로 조회하면 모든 스프링 빈을 조회할 수 있다.
+
+```java
+public class ApplicationContextExtendsFindTest {
+    AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(ApplicationContextExtendsFindTest.TestConfig.class);
+
+    @Test
+    @DisplayName("부모 타입으로 조회시, 자식이 둘 이상 있으면, 중복 오류가 발생한다")
+    void findBeanByParentTypeDuplicate() {
+        assertThrows(NoUniqueBeanDefinitionException.class, () -> ac.getBean(DiscountPolicy.class));
+    }
+
+    @Test
+    @DisplayName("부모 타입으로 조회시, 자식이 둘 이상 있으면, 빈 이름을 지정하면 된다.")
+    void findBeanByParentTypeBeanName() {
+        DiscountPolicy discountPolicy = ac.getBean("rateDiscountPolicy", DiscountPolicy.class);
+        assertThat(discountPolicy).isInstanceOf(RateDiscountPolicy.class);
+    }
+
+    @Test
+    @DisplayName("부모 타입으로 모두 조회하기")
+    void findAllByParentType() {
+        Map<String, DiscountPolicy> beansOfType = ac.getBeansOfType(DiscountPolicy.class);
+        assertThat(beansOfType.size()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Object 타입으로 모두 조회하기")
+    void findAllByObjectType() {
+        Map<String, Object> beansOfType = ac.getBeansOfType(Object.class);
+        for (String key : beansOfType.keySet()) {
+            System.out.println("key = " + key + " value = " + beansOfType.get(key));
+        }
+    }
+
+
+    @Configuration
+    static class TestConfig {
+        @Bean
+        public DiscountPolicy rateDiscountPolicy() {
+            return new RateDiscountPolicy();
+        }
+
+        @Bean
+        public DiscountPolicy FixDiscountPolicy() {
+            return new FixDiscountPolicy();
+        }
+    }
+}
+```
+
+### BeanFactory, ApplicationContext
+
+- BeanFactory
+  - 스프링 컨테이너의 최상위 인터페이스로 스프링 빈을 관리하고 조회하는 역할을 담당한다.
+  - `getBean()`을 제공한다
+
+- ApplicationContext
+  - BeanFactory를 상속하며, 빈을 관리하고 조회하는 기능 외 여러 부가기능을 제공한다.
+  - `MessageSource`를 이용한 국제화 기능
+  - `EnvironmentCapable` : 로컬, 개발, 운영 환경을 구분하여 처리
+  - `ApplicationEventPublisher` : 이벤트를 발행하고 구독
+  - `ResourceLoader` : 파일 클래스패스 외부 등에서 리소스 편리하게 조회
+
+ApplicationContext는 BeanFactory를 상속받아 빈 관리기능 뿐만 아니라 앞서 말한 부가기능을 제공한다. 때문에 BeanFactory를 직접 사용할 일은
+거의 없으며, ApplicationContext를 주로 사용한다. 통상적으로 BeanFactory, ApplicationContext 둘다 스프링 컨테이너라 한다.
+
+### XML 기반 스프링 빈 설정 정보 : `appConfig.xml`
+
+```java
+public class XmlAppContext {
+    @Test
+    void xmlAppContext() {
+        ApplicationContext ac = new GenericXmlApplicationContext("appConfig.xml");
+        MemberService memberService = ac.getBean("memberService", MemberService.class);
+        assertThat(memberService).isInstanceOf(MemberService.class);
+    }
+}
+```
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="memberService" class="hello.core.member.MemberServiceImpl">
+        <constructor-arg name="memberRepository" ref="memberRepository"/>
+    </bean>
+
+    <bean id="memberRepository" class="hello.core.member.MemoryMemberRepository"/>
+
+    <bean id="orderService" class="hello.core.order.OrderServiceImpl">
+        <constructor-arg name="memberRepository" ref="memberRepository"/>
+        <constructor-arg name="discountPolicy" ref="discountPolicy"/>
+    </bean>
+
+    <bean id="discountPolicy" class="hello.core.discount.RateDiscountPolicy"/>
+</beans>
 ```
 
 
