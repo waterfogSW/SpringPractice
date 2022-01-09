@@ -211,7 +211,7 @@ public class OrderApp {
   - 스프링 컨테이너에 등록된 객체를 스프링 빈 이라 함.
 - `.getBean()`을 통해 스프링 빈을 불러올 수 있다. 
 
-## Section 3 : 스프링 컨테이너와 스프링 빈
+## Section 4 : 스프링 컨테이너와 스프링 빈
 
 ### 스프링 컨테이너 생성
 
@@ -460,4 +460,14 @@ public class XmlAppContext {
 </beans>
 ```
 
+### 스프링 빈 설정 메타 정보 : BeanDefinition
+
+- 스프링이 다양한 설정 형식을 지원할 수 있는 이유는 `BeanDefinition`이라는 추상화 덕분이다
+- `BeanDefinition`은 빈 설정 메타정보 `역할`이라 볼 수 있다.
+  - 스프링 컨테이너는 이 메타 정보 `BeanDefinition` 인터페이스에 의존하여 스프링 빈을 생성한다.
+  - `BeanDefinition`의 구현은 `AppConfig.class`, `appConfig.xml`, ...등이 될 수 있다.
+
+
+- 실무에서 `BeanDefinition`을 직접 정의하거나 사용할 일은 거의없다. 
+- 스프링이 다양한 형태의 설정정보를 `BeanDefinition`으로 추상화해서 사용한다 정도만 알고있으면 된다.
 
