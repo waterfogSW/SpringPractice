@@ -471,3 +471,122 @@ public class XmlAppContext {
 - 실무에서 `BeanDefinition`을 직접 정의하거나 사용할 일은 거의없다. 
 - 스프링이 다양한 형태의 설정정보를 `BeanDefinition`으로 추상화해서 사용한다 정도만 알고있으면 된다.
 
+## Section 5 : 싱글톤 컨테이너
+
+- 스프링은 기업용 온라인 서비스 기술을 지원하기 위해 탄생하였기 때문에, 대부분의 스프링 애플리케이션은 웹 애플리케이션이다.
+- 웹 애플리케이션은 보통 여러 고객이 동시에 요청을 한다.
+
+```java
+public class SingletonTest {
+    @Test
+    @DisplayName("스프링 없는 순수한 DI 컨테이너")
+    void pureContainer() {
+        AppConfig appConfig = new AppConfig();
+        //1. 조회: 호출할 땜 마다 객체를 생성
+        MemberService memberService1 = appConfig.memberService();
+
+        //2. 조회: 호출할 때 마다 객체를 생성
+        MemberService memberService2 = appConfig.memberService();
+
+        // 참조값이 다른것을 확인
+        Assertions.assertThat(memberService1).isNotSameAs(memberService2);
+    }
+}
+```
+
+- 이때 스프링을 사용하지 않은 순수한 DI 컨테이너(`AppConfig`)는 매 요청마다 객체를 새로 생성한다.
+- 이로인해 메모리 낭비가 심하다 -> 객체를 최초 1개만 생성하고 공유하도록 설계하면 된다.
+
+### 싱글톤 패턴
+
+- 클래스의 인스턴스가 딱 1개만 생성되는것을 보장하는 디자인 패턴
+
+
+```java
+public class SingletonService {
+    // 1. static 영역에 객체를 딱 1개만 생성해 둔다.
+    private static final SingletonService instance = new SingletonService();
+
+    // 2. public 으로 열어서 객체 인스턴스가 필요하면, static메서드를 통해서만 조회하도록 허용한다.
+    public static SingletonService getInstance() {
+        return instance;
+    }
+
+    // 3. 생성자를 private 으로 선언하여 외부에서 생성하지 못하게 한다.
+    // -> 좋은 설계는 컴파일 오류만으로 오류를 모두 잡을수 있도록 해야 한다.
+    private SingletonService() {}
+
+    public void logic() {
+        System.out.println("싱글톤 객체 로직 호출");
+    }
+}
+```
+
+```java
+public class SingletonTest {
+    @Test
+    @DisplayName("스프링 없는 순수한 DI 컨테이너")
+    void pureContainer() {
+        AppConfig appConfig = new AppConfig();
+        //1. 조회: 호출할 땜 마다 객체를 생성
+        MemberService memberService1 = appConfig.memberService();
+
+        //2. 조회: 호출할 때 마다 객체를 생성
+        MemberService memberService2 = appConfig.memberService();
+
+        // 참조값이 다른것을 확인
+        assertThat(memberService1).isNotSameAs(memberService2);
+    }
+
+    @Test
+    @DisplayName("싱글톤 패턴을 적용한 객체 사용")
+    void singletonServiceTest() {
+        SingletonService singletonService1 = SingletonService.getInstance();
+        SingletonService singletonService2 = SingletonService.getInstance();
+
+        assertThat(singletonService1).isSameAs(singletonService2);
+        // same == 대상의 주소를 비교(같은 객체를 참조하고 있는지 확인)
+        // equal == 대상의 내용을 비교
+    }
+}
+```
+
+1. static 영역에 객체를 딱 1개만 생성해 둔다.
+2. public 으로 열어서 객체 인스턴스가 필요하면, static메서드를 통해서만 조회하도록 허용한다.
+3. 생성자를 private 으로 선언하여 외부에서 생성하지 못하게 한다.  
+   -> 좋은 설계는 컴파일 오류만으로 오류를 모두 잡을수 있도록 해야 한다.
+
+> isSameAs vs isEqualTo
+> `isSameAs`는 참조하는 주소값이 같은지 비교하며, `isEqualTo`는 참조 대상의 내용이 같은지 확인한다.
+
+**번외**
+- LazyHolder를 이용한 Singleton 패턴
+  - 클래스 초기화 단계에서부터 객체를 생성하여 메모리를 낭비하지 않고, 최초 호출되었을때로 객체 초기화를 미룬다.
+
+```java
+public class SingletonService {
+    private SingletonService() {};
+
+    private static class LazyHolder {
+        static final SingletonService SINGLETON_SERVICE = new SingletonService();
+    }
+
+    public static SingletonService getInstance() {
+        return LazyHolder.SINGLETON_SERVICE;
+    }
+}
+```
+
+### 싱글톤 패턴의 문제점
+
+- 싱글톤 패턴 구현을 위한 코드가 많이들어감
+- 의존관계상 구체클래스에 의존하여 DIP를 위반한다.
+- 구체 클래스 의존으로 인해 OCP원칙을 위반할 가능성이 높다.
+- 유연성이 떨어진다
+- 안티패턴으로 불리기도 함
+
+### 싱글톤 컨테이너
+
+- 스프링 컨테이너는 앞서 언급한 싱글톤 패턴의 문제점을 해결하면서, 객체 인스턴스를 싱글톤으로 관리한다.
+- 이렇게 싱글톤 객체를 생성하고 관리하는 기능을 싱글톤 레지스트리라 한다.
+
