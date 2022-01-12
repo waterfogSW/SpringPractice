@@ -742,5 +742,11 @@ bean = class hello.core.AppConfig$$EnhancerBySpringCGLIB$$151abfc
 
 
 - 상기 테스트의 결과로 AppConfig클래스가 호출되는 것이 아니라, `CGLIB`라는 단어가 붙은 클래스가 호출되는것을 확인할 수 있다.
-- 스프링은 CGLIB이라는 바이트코드 조작 라이브러리를 사용해서 Appconfig클래스를 상속받은 임의의 다른 클래스를 만들고, 해당 클래스를 스프링 빈으로 등록한다.
+- 스프링은 CGLIB이라는 **바이트코드 조작** 라이브러리를 사용해서 Appconfig클래스를 상속받은 임의의 다른 클래스를 만들고, 해당 클래스를 스프링 빈으로 등록한다.
 - 이 임의의 다른 클래스가 싱글톤이 되도록 보장한다.
+- `AppConfig$$EnhancerBySpringCGLIB$$`는 `AppConfig`의 자식 타입이므로 `AppConfig`로 조회 가능하다.
+
+
+즉 `@Configuration`어노테이션은 바이트 코드 조작을 통해 해당 클래스 내의 스프링 빈들의 싱글톤을 보장한다.  
+만약, `@Configuration`을 붙이지 않으면, 스프링 빈으로 등록되긴 하지만, 싱글톤을 보장하지 않는다. 
+
