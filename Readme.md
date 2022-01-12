@@ -747,5 +747,7 @@ bean = class hello.core.AppConfig$$EnhancerBySpringCGLIB$$151abfc
 
 
 즉 `@Configuration`어노테이션은 바이트 코드 조작을 통해 해당 클래스 내의 스프링 빈들의 싱글톤을 보장한다.  
-만약, `@Configuration`을 붙이지 않으면, 스프링 빈으로 등록되긴 하지만, 싱글톤을 보장하지 않는다. 
+만약, `@Configuration`을 붙이지 않으면, 스프링 빈으로 등록되긴 하지만, 싱글톤을 보장하지 않는다.
+
+따라서 스프링 설정 정보는 항상 `@Configuration`을 사용하여 싱글톤을 보장하면 된다.
 
