@@ -753,13 +753,153 @@ bean = class hello.core.AppConfig$$EnhancerBySpringCGLIB$$151abfc
 
 ## Section 7 : 컴포넌트 스캔
 
-### 컴포넌트 스캔과 의존관계 자동 주입 시작하기
+### 컴포넌트 스캔과 의존관계 자동 주입
 
 - 스프링 빈이 많아지면 일일이 등록하기 귀찮아지고, 설정정보가 커져 누락하는 문제가 발생하게 된다.
 - 스프링은 설정 정보 없이도 자동으로 스프링 빈을 등록하는 컴포넌트 스캔이라는 기능을 제공한다.
 - 또한 의존관계를 자동으로 주입하는 `@Autowired`라는 기능을 제공한다.
-
+ 
 컴포넌트 스캔은 `@Component`애노테이션이 붙은 클래스를 스캔해서 스프링 빈으로 등록한다.
 - `@Configuration`애노테이션의 소스코드 또한 `@Component`이 붙어 있기 때문에 컴포넌트 스캔의 대상이 된다.
 - 이때 스프링 빈의 기본 이름은 클래스 명을 사용하되, 맨 앞글자만 소문자를 사용한다.
+- 생성자에 파라미터가 많더라도 알아서 주입한다.
 
+### 컴포넌트 스캔의 탐색 위치, 스캔 대상
+
+```java
+package hello.core;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
+
+@Configuration
+@ComponentScan(
+        basePackages = "hello.core",
+        basePackageClasses = AutoAppConfig.class,
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ANNOTATION, classes = Configuration.class)
+)
+public class AutoAppConfig {
+
+}
+```
+
+- `basePackages` : 탐색할 패키지의 시작 위치 지정. 해당 패키지와 해당 패키지의 하위 패키지를 탐색
+- `basePackageClasses` : 지정한 클래스의 패키지를 탐색 시작 위치로 지정
+- 만약 지정하지 않는다면, `@ComponentScan`이 붙은 설정 정보 클래스가 기준이 됨
+
+> **권장하는 방법**  
+> 관례상 패키지 위치를 지정하지 않고, 설정 정보 클래스의 위치를 프로젝트 최상단에 둔다.  
+> 최근 스프링 부트도 이 방법을 기본으로 제공한다.  
+> 프로젝트 메인 설정정보는 프로젝트를 대표하는 정보기 때문에 시작 루트 위치에 두는것이 좋다.
+> 
+> 참고로 스프링 부트의 대표 시작 정보인 `@SpringBootApplication`은 프로젝트 시작 루트 위치에 두는것이 관례이다.  
+> -> `@SpringBootApplication`에는 `@ComponentScan`이 포함되어 있다.
+
+다음의 애노테이션은 컴포넌트 스캔의 대상이다
+- `@Componet`
+- `@Controller`
+- `@Serivce`
+- `@Repository`
+- `@Configuration`
+
+> 애노테이션이 특정 애노테이션을 들고있는것은 자바가 지원하는 기능이 아니라 스프링이 지원하는 기능이다.
+
+
+### 스캔 필터
+
+애노테이션을 통한 스캔 대상 제외
+
+**포함 애노테이션**
+```java
+package hello.core.scan.filter;
+
+import java.lang.annotation.*;
+
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface MyIncludeComponent {
+
+}
+```
+
+```java
+package hello.core.scan.filter;
+
+@MyIncludeComponent
+public class BeanA {
+
+}
+```
+
+**제외 애노테이션**
+```java
+package hello.core.scan.filter;
+
+import java.lang.annotation.*;
+
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface MyExcludeComponent {
+
+}
+```
+
+```java
+package hello.core.scan.filter;
+
+@MyExcludeComponent
+public class BeanB {
+}
+```
+
+**컴포넌트 스캔 테스트**
+
+```java
+public class ComponentFilterAppConfigTest {
+
+    @Test
+    void filterScan() {
+      ApplicationContext ac = new AnnotationConfigApplicationContext(ComponentFilterAppConfig.class);
+      BeanA beanA = ac.getBean("beanA", BeanA.class);
+      Assertions.assertThat(beanA).isNotNull();
+    }\
+
+        assertThrows(
+                NoSuchBeanDefinitionException.class,
+                () -> ac.getBean("beanB", BeanB.class)
+        );
+    }
+
+    @Configuration
+    @ComponentScan(
+            includeFilters = @Filter(type = FilterType.ANNOTATION, classes = MyIncludeComponent.class),
+            excludeFilters = @Filter(type = FilterType.ANNOTATION, classes = MyExcludeComponent.class)
+    )
+    static class ComponentFilterAppConfig {
+
+    }
+}
+```
+
+### 중복 등록
+
+1. 자동 빈 등록 vs 자동 빈 등록
+
+`ConflictingBeanDefinitionException`예외 발생
+
+2. 수동 빈 등록 vs 자동 빈 등록
+
+- 수동 빈 등록이란 `@ComponentScan`애노테이션이 붙은 클래스 내에 `@Bean`애노테이션으로 정의한것을 말함
+- 이경우에 수동 빈 등록이 우선권을 가진다(수동 빈이 자동빈을 오버라이딩 함)
+
+수동 빈 등록시 남는 로그
+
+```text
+Overriding bean definition for bean `memoryMemberRepository` with a different
+definition: replacing
+```
+
+최근 스프링 부트에서는 수동 빈 등록과 자동 빈 등록이 충돌나면 오류가 발생하도록 기본값을 바꾸었다.
