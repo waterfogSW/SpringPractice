@@ -1130,3 +1130,106 @@ public class OrderServiceImpl implements OrderService {
 
 > 최근에는 생성자를 1개두고 `@Autowired`를 생략하는 방법을 주로 사용한다.  
 > Lombok 라이브러리를 함께 사용하면 기능은 다 제공하면서 코드를 깔끔하게 사용할 수 있다.
+
+### 조회할 빈이 2개 이상인 경우
+
+```java
+
+@Component
+public class FixDiscountPolicy implements DiscountPolicy {
+    //...
+}
+```
+
+```java
+
+@Component
+public class RateDiscountPolicy implements DiscountPolicy {
+    //...
+}
+```
+
+```java
+
+@Component
+public class OrderServiceImpl implements OrderService {
+    private final MemberRepository memberRepository;
+    private final DiscountPolicy discountPolicy;
+
+    @Autowired
+    public OrderServiceImpl(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+    //...
+}
+```
+
+`@Autowired`는 타입으로 조회한다. 앞선 코드는 `ac.getBean(DiscountPolicy.class)`와 동일하게 동작하게 되는데
+`DiscountPolicy`타입을 상속하는 클래스는 `FixDiscountPolicy`, `RateDiscountPolicy`두가지로 `NoUniqueBeanDefinitionException`이 발생하게 된다.
+
+이러한 경우에 해결방법은 다음과 같다
+
+- @Autowired 필드명 매치
+- @Qualifier -> @Qualifier 끼리 매칭 -> 빈 이름 매칭
+- @Primary 사용
+
+#### @Autowired 필드명 매칭
+
+**기존 코드**
+
+```text
+@Autowired
+private DiscountPolicy discountPolicy
+```
+
+**필드명 빈 이름으로 변경**
+
+```text
+@Autowired
+private DiscountPolicy rateDiscountPolicy
+```
+
+`@Autowired`는 타입 매칭을 시도하고, 결과에 여러 빈이 존재하면 필드명으로 매칭을 시도한다.  
+필드명이 `rateDiscountPolicy`이므로 해당 이름을 가진 빈을 매칭한다.
+
+#### @Qualifier 사용 (추가 구분자)
+
+```text
+@Component
+@Qualifier("mainDiscountPolicy")
+public class RateDiscountPolicy implements DiscountPolicy{
+```
+
+```text
+public OrderServiceImpl(MemberRepository memberRepository, @Qualifier("mainDiscountPolicy") DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+```
+
+`@Qualifier("mainDiscountPolicy")`를 찾지 못할 경우, mainDiscountPolicy라는 이름의 스프링 빈을 추가로 찾는다.  
+그렇더라도 `@Qualifier`는 `@Qualifier`를 찾는 용도로만 사용하는것이 좋다.
+
+#### @Primary 사용 (우선 순위)
+
+여러 스프링 빈이 매칭되면, `@Primary`애노테이션이 지정된 스프링 빈이 우선권을 가진다.
+
+메인 DB, 보조 DB와 같이 운용할때 유용하게 사용할 수 있다.
+
+#### @Qualifier vs @Primary
+
+**@Primary, @Qualifier 활용**
+코드에서 자주 사용하는 메인 데이터베이스의 커넥션을 획득하는 스프링 빈이 있고, 코드에서 특별한
+기능으로 가끔 사용하는 서브 데이터베이스의 커넥션을 획득하는 스프링 빈이 있다고 생각해보자. 메인
+데이터베이스의 커넥션을 획득하는 스프링 빈은 `@Primary` 를 적용해서 조회하는 곳에서 `@Qualifier`
+지정 없이 편리하게 조회하고, 서브 데이터베이스 커넥션 빈을 획득할 때는 @Qualifier 를 지정해서
+명시적으로 획득 하는 방식으로 사용하면 코드를 깔끔하게 유지할 수 있다. 물론 이때 메인 데이터베이스의
+스프링 빈을 등록할 때 `@Qualifier` 를 지정해주는 것은 상관없다.
+
+**우선순위**
+`@Primary` 는 기본값 처럼 동작하는 것이고, `@Qualifier` 는 매우 상세하게 동작한다. 이런 경우 어떤 것이
+우선권을 가져갈까? 스프링은 자동보다는 수동이, 넒은 범위의 선택권 보다는 좁은 범위의 선택권이 우선
+순위가 높다. 따라서 여기서도 `@Qualifier` 가 우선권이 높다.
+
+### 애노테이션 직접 만들기
