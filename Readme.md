@@ -736,6 +736,7 @@ public class ConfigurationSingletonTest {
 ```
 
 **결과**
+
 ```
 bean = class hello.core.AppConfig$$EnhancerBySpringCGLIB$$151abfc
 ```
@@ -745,21 +746,21 @@ bean = class hello.core.AppConfig$$EnhancerBySpringCGLIB$$151abfc
 - 이 임의의 다른 클래스가 싱글톤이 되도록 보장한다.
 - `AppConfig$$EnhancerBySpringCGLIB$$`는 `AppConfig`의 자식 타입이므로 `AppConfig`로 조회 가능하다.
 
-
 즉 `@Configuration`어노테이션은 바이트 코드 조작을 통해 해당 클래스 내의 스프링 빈들의 싱글톤을 보장한다.  
 만약, `@Configuration`을 붙이지 않으면, 스프링 빈으로 등록되긴 하지만, 싱글톤을 보장하지 않는다.
 
 따라서 스프링 설정 정보는 항상 `@Configuration`을 사용하여 싱글톤을 보장하면 된다.
 
-## Section 7 : 컴포넌트 스캔
+## Section 6 : 컴포넌트 스캔
 
 ### 컴포넌트 스캔과 의존관계 자동 주입
 
 - 스프링 빈이 많아지면 일일이 등록하기 귀찮아지고, 설정정보가 커져 누락하는 문제가 발생하게 된다.
 - 스프링은 설정 정보 없이도 자동으로 스프링 빈을 등록하는 컴포넌트 스캔이라는 기능을 제공한다.
 - 또한 의존관계를 자동으로 주입하는 `@Autowired`라는 기능을 제공한다.
- 
+
 컴포넌트 스캔은 `@Component`애노테이션이 붙은 클래스를 스캔해서 스프링 빈으로 등록한다.
+
 - `@Configuration`애노테이션의 소스코드 또한 `@Component`이 붙어 있기 때문에 컴포넌트 스캔의 대상이 된다.
 - 이때 스프링 빈의 기본 이름은 클래스 명을 사용하되, 맨 앞글자만 소문자를 사용한다.
 - 생성자에 파라미터가 많더라도 알아서 주입한다.
@@ -792,11 +793,12 @@ public class AutoAppConfig {
 > 관례상 패키지 위치를 지정하지 않고, 설정 정보 클래스의 위치를 프로젝트 최상단에 둔다.  
 > 최근 스프링 부트도 이 방법을 기본으로 제공한다.  
 > 프로젝트 메인 설정정보는 프로젝트를 대표하는 정보기 때문에 시작 루트 위치에 두는것이 좋다.
-> 
+>
 > 참고로 스프링 부트의 대표 시작 정보인 `@SpringBootApplication`은 프로젝트 시작 루트 위치에 두는것이 관례이다.  
 > -> `@SpringBootApplication`에는 `@ComponentScan`이 포함되어 있다.
 
 다음의 애노테이션은 컴포넌트 스캔의 대상이다
+
 - `@Componet`
 - `@Controller`
 - `@Serivce`
@@ -805,12 +807,12 @@ public class AutoAppConfig {
 
 > 애노테이션이 특정 애노테이션을 들고있는것은 자바가 지원하는 기능이 아니라 스프링이 지원하는 기능이다.
 
-
 ### 스캔 필터
 
 애노테이션을 통한 스캔 대상 제외
 
 **포함 애노테이션**
+
 ```java
 package hello.core.scan.filter;
 
@@ -834,6 +836,7 @@ public class BeanA {
 ```
 
 **제외 애노테이션**
+
 ```java
 package hello.core.scan.filter;
 
@@ -862,10 +865,10 @@ public class ComponentFilterAppConfigTest {
 
     @Test
     void filterScan() {
-      ApplicationContext ac = new AnnotationConfigApplicationContext(ComponentFilterAppConfig.class);
-      BeanA beanA = ac.getBean("beanA", BeanA.class);
-      Assertions.assertThat(beanA).isNotNull();
-    }\
+        ApplicationContext ac = new AnnotationConfigApplicationContext(ComponentFilterAppConfig.class);
+        BeanA beanA = ac.getBean("beanA", BeanA.class);
+        Assertions.assertThat(beanA).isNotNull();
+
 
         assertThrows(
                 NoSuchBeanDefinitionException.class,
@@ -903,3 +906,117 @@ definition: replacing
 ```
 
 최근 스프링 부트에서는 수동 빈 등록과 자동 빈 등록이 충돌나면 오류가 발생하도록 기본값을 바꾸었다.
+
+## Section 7 : 의존관계 자동 주입
+
+### 다양한 의존관계 주입 방법
+
+#### 생성자 주입
+
+- 생성자를 통해서 의존 관계를 주입받는 방식
+    - 생성자 호출 시점에 1번만 호출되는것이 보장된다.
+    - **불변, 필수**의존관계에 사용
+    - 제약을 명확히 하는 개발 습관이 중요하다.
+
+```java
+public class OrderServiceImpl implements OrderService {
+    private final MemberRepository memberRepository;
+    private final DiscountPolicy discountPolicy;
+
+    @Autowired
+    public OrderServiceImpl(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+    // ...
+}
+```
+
+**[중요!]** - 스프링 빈의경우 생성자가 1개만 있으면, `@Autowired`가 없어도 자동으로 의존관계를 주입한다.
+
+다음의 코드는 앞선 코드와 동일하게 동작한다.
+
+```java
+public class OrderServiceImpl implements OrderService {
+    private final MemberRepository memberRepository;
+    private final DiscountPolicy discountPolicy;
+
+    public OrderServiceImpl(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+    // ...
+}
+```
+
+### 수정자 주입
+
+- 수정자 메서드를 통해 의존관계를 주입하는 방법
+  - **선택, 변경**가능성이 있는 의존관계에 사용
+
+```java
+
+@Component
+public class OrderServiceImpl implements OrderService {
+    private MemberRepository memberRepository;
+    private DiscountPolicy discountPolicy;
+
+    @Autowired
+    void setDiscountPolicy(DiscountPolicy discountPolicy) {
+        this.discountPolicy = discountPolicy;
+    }
+
+    @Autowired
+    public void setMemberRepository(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+    }
+
+    @Autowired
+    public OrderServiceImpl(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+    // ...
+}
+```
+
+- 생성자 주입과 수정자 주입이 같이 있으면, 생성자 주입이 먼저 발생.
+- `@Autowired`는 주입할 대상이 없으면 오류가 발생한다. 
+- 주입 대상이 없어도 동작하게 하려면 `@Autowired(required = false)`로 지정하면 된다.
+
+### 필드 주입
+
+- 스프링 컨테이너가 아닌 순수 자바코드로 테스트할 방법이 없어 권장하지 않는 방법
+- 애플리케이션 실제 코드와 관계없는 테스트 코드나, `@Configuration`에서 특별한 용도로만 사용
+
+```java
+
+@Component
+public class OrderServiceImpl implements OrderService {
+  @Autowired private MemberRepository memberRepository;
+  @Autowired private DiscountPolicy discountPolicy;
+  // ...
+}
+```
+
+### 일반 메서드 주입
+
+- 한번에 여러필드를 주입할 수 있다
+- 일반적으로 잘 사용하지 않는다
+
+```java
+
+@Component
+public class OrderServiceImpl implements OrderService {
+  private MemberRepository memberRepository;
+  private DiscountPolicy discountPolicy;
+
+  @Autowired
+  public void init(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+    this.memberRepository = memberRepository;
+    this.discountPolicy = discountPolicy;
+  }
+}
+```
+
+> 자동의존관계 주입은 스프링 컨테이너가 관리하는 스프링 빈이어야만 동작한다.
