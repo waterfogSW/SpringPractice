@@ -949,10 +949,10 @@ public class OrderServiceImpl implements OrderService {
 }
 ```
 
-### 수정자 주입
+#### 수정자 주입
 
 - 수정자 메서드를 통해 의존관계를 주입하는 방법
-  - **선택, 변경**가능성이 있는 의존관계에 사용
+    - **선택, 변경**가능성이 있는 의존관계에 사용
 
 ```java
 
@@ -981,7 +981,7 @@ public class OrderServiceImpl implements OrderService {
 ```
 
 - 생성자 주입과 수정자 주입이 같이 있으면, 생성자 주입이 먼저 발생.
-- `@Autowired`는 주입할 대상이 없으면 오류가 발생한다. 
+- `@Autowired`는 주입할 대상이 없으면 오류가 발생한다.
 - 주입 대상이 없어도 동작하게 하려면 `@Autowired(required = false)`로 지정하면 된다.
 
 ### 필드 주입
@@ -993,13 +993,15 @@ public class OrderServiceImpl implements OrderService {
 
 @Component
 public class OrderServiceImpl implements OrderService {
-  @Autowired private MemberRepository memberRepository;
-  @Autowired private DiscountPolicy discountPolicy;
-  // ...
+    @Autowired
+    private MemberRepository memberRepository;
+    @Autowired
+    private DiscountPolicy discountPolicy;
+    // ...
 }
 ```
 
-### 일반 메서드 주입
+#### 일반 메서드 주입
 
 - 한번에 여러필드를 주입할 수 있다
 - 일반적으로 잘 사용하지 않는다
@@ -1008,15 +1010,123 @@ public class OrderServiceImpl implements OrderService {
 
 @Component
 public class OrderServiceImpl implements OrderService {
-  private MemberRepository memberRepository;
-  private DiscountPolicy discountPolicy;
+    private MemberRepository memberRepository;
+    private DiscountPolicy discountPolicy;
 
-  @Autowired
-  public void init(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
-    this.memberRepository = memberRepository;
-    this.discountPolicy = discountPolicy;
-  }
+    @Autowired
+    public void init(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
 }
 ```
 
 > 자동의존관계 주입은 스프링 컨테이너가 관리하는 스프링 빈이어야만 동작한다.
+
+### 옵션 처리
+
+```java
+public class AutowiredTest {
+    @Test
+    void AutowiredOption() {
+        ApplicationContext ac = new AnnotationConfigApplicationContext(TestBean.class);
+    }
+
+    static class TestBean {
+        @Autowired(required = false)
+        public void setNoBean1(Member noBean1) {
+            System.out.println("noBean1 = " + noBean1);
+        }
+
+        @Autowired
+        public void setNoBean2(@Nullable Member noBean2) {
+            System.out.println("noBean2 = " + noBean2);
+        }
+
+        @Autowired
+        public void setNoBean3(Optional<Member> noBean3) {
+            System.out.println("noBean3 = " + noBean3);
+        }
+    }
+}
+```
+
+**출력 결과**
+
+```text
+noBean2 = null
+noBean3 = Optional.empty
+```
+
+> Member는 스프링 빈이 아니다.
+
+1. `setNobean1`은 의존관계가 없으므로 `@Autowired(required = false)`에 의해 호출 자체가 안된다.
+2. `@Nullabe`과 `Optional`은 스프링 전반에 걸쳐 지원된다.
+
+### 생성자 주입을 사용해야 하는 이유
+
+**불변**
+
+- 대부분의 의존관계 주입은 한번일어나면 종료시점까지 의존 관계를 변경할 일이 없다.
+- 생성자 주입은 객체 생성시 1번만 호출되므로 불변하게 설계할 수 있다.
+
+**누락**
+
+- 프레임 워크 없이 순수 자바 코드를 단위 테스트 하는 경우
+- 수정자 주입을 사용하는 경우 반드시 수정자를 호출해 주어야한다. 즉 코드를 열람하여 확인해봐야 한다.
+- 반면 생성자 주입을 사용하는 경우 어떤 의존 관계가 필요한지 테스트 코드 수준에서 파악 가능하다.
+- 개발자가 필요한 의존관계를 누락한 경우 `final`키워드로 인해 어떤 의존관계를 누락했는지 컴파일 시점에 파악가능하다.
+
+> 컴파일 오류는 세상에서 가장 빠르고 좋은 오류다!
+
+### 롬복과 최신 트랜드
+
+**기존 코드**
+
+```java
+
+@Component
+public class OrderServiceImpl implements OrderService {
+    private final MemberRepository memberRepository;
+    private final DiscountPolicy discountPolicy;
+
+    @Autowired
+    public OrderServiceImpl(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+}
+```
+
+**생성자가 1개만 있으면, `@Autowired`를 생략할 수 있다.**
+
+```java
+
+@Component
+public class OrderServiceImpl implements OrderService {
+    private final MemberRepository memberRepository;
+    private final DiscountPolicy discountPolicy;
+
+    public OrderServiceImpl(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+}
+```
+
+**롬복 사용**
+
+```java
+
+@Component
+@RequiredArgsConstructor
+public class OrderServiceImpl implements OrderService {
+    private final MemberRepository memberRepository;
+    private final DiscountPolicy discountPolicy;
+}
+```
+
+롬복 라이브러리의 `@RequiredArgsConstructor`기능은 final 이 붙은 필드를 모아 생성자를 자동으로 만들어 준다.
+
+> 최근에는 생성자를 1개두고 `@Autowired`를 생략하는 방법을 주로 사용한다.  
+> Lombok 라이브러리를 함께 사용하면 기능은 다 제공하면서 코드를 깔끔하게 사용할 수 있다.
