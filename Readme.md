@@ -1220,16 +1220,149 @@ public OrderServiceImpl(MemberRepository memberRepository, @Qualifier("mainDisco
 #### @Qualifier vs @Primary
 
 **@Primary, @Qualifier 활용**
-코드에서 자주 사용하는 메인 데이터베이스의 커넥션을 획득하는 스프링 빈이 있고, 코드에서 특별한
-기능으로 가끔 사용하는 서브 데이터베이스의 커넥션을 획득하는 스프링 빈이 있다고 생각해보자. 메인
-데이터베이스의 커넥션을 획득하는 스프링 빈은 `@Primary` 를 적용해서 조회하는 곳에서 `@Qualifier`
-지정 없이 편리하게 조회하고, 서브 데이터베이스 커넥션 빈을 획득할 때는 @Qualifier 를 지정해서
-명시적으로 획득 하는 방식으로 사용하면 코드를 깔끔하게 유지할 수 있다. 물론 이때 메인 데이터베이스의
-스프링 빈을 등록할 때 `@Qualifier` 를 지정해주는 것은 상관없다.
+코드에서 자주 사용하는 메인 데이터베이스의 커넥션을 획득하는 스프링 빈이 있고, 코드에서 특별한 기능으로 가끔 사용하는 서브 데이터베이스의 커넥션을 획득하는 스프링 빈이 있다고 생각해보자. 메인 데이터베이스의
+커넥션을 획득하는 스프링 빈은 `@Primary` 를 적용해서 조회하는 곳에서 `@Qualifier`
+지정 없이 편리하게 조회하고, 서브 데이터베이스 커넥션 빈을 획득할 때는 @Qualifier 를 지정해서 명시적으로 획득 하는 방식으로 사용하면 코드를 깔끔하게 유지할 수 있다. 물론 이때 메인 데이터베이스의 스프링
+빈을 등록할 때 `@Qualifier` 를 지정해주는 것은 상관없다.
 
 **우선순위**
-`@Primary` 는 기본값 처럼 동작하는 것이고, `@Qualifier` 는 매우 상세하게 동작한다. 이런 경우 어떤 것이
-우선권을 가져갈까? 스프링은 자동보다는 수동이, 넒은 범위의 선택권 보다는 좁은 범위의 선택권이 우선
-순위가 높다. 따라서 여기서도 `@Qualifier` 가 우선권이 높다.
+`@Primary` 는 기본값 처럼 동작하는 것이고, `@Qualifier` 는 매우 상세하게 동작한다. 이런 경우 어떤 것이 우선권을 가져갈까? 스프링은 자동보다는 수동이, 넒은 범위의 선택권 보다는 좁은 범위의
+선택권이 우선 순위가 높다. 따라서 여기서도 `@Qualifier` 가 우선권이 높다.
 
 ### 애노테이션 직접 만들기
+
+`@Qualifier("mainDiscountPolicy")`의 mainDiscountPolicy와 같은 문자는 컴파일시점에서 타입 체크가 되지 않는다.
+
+이때 새로운 애노테이션을 조합하여 사용할 수 있다.
+
+```java
+
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE, ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@Documented
+@Qualifier("mainDiscountPolicy")
+public @interface MainDiscountPolicy {
+
+}
+```
+
+**기존 코드**
+
+```text
+@Component
+@Primary
+public class RateDiscountPolicy implements DiscountPolicy{
+```
+
+```text
+    public OrderServiceImpl(MemberRepository memberRepository, DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+```
+
+**수정 코드**
+
+```text
+@MainDiscountPolicy
+public class RateDiscountPolicy implements DiscountPolicy{
+
+```
+
+```text
+    public OrderServiceImpl(MemberRepository memberRepository, @MainDiscountPolicy DiscountPolicy discountPolicy) {
+        this.memberRepository = memberRepository;
+        this.discountPolicy = discountPolicy;
+    }
+```
+
+하지만 스프링이 제공하는 기능을 뚜렷한 목적 없이 무분별하게 재정의 하는것은 유지보수에 혼란만 가중할 수 있다.
+
+### 조회한 빈이 모두 필요할 때
+
+```java
+public class AllBeanTest {
+    @Test
+    void findAllBean() {
+        ApplicationContext ac = new AnnotationConfigApplicationContext(AutoAppConfig.class, DiscountService.class);
+
+        DiscountService discountService = ac.getBean(DiscountService.class);
+        Member member = new Member(1L, "userA", Grade.VIP);
+        int discountPrice = discountService.discount(member, 10000, "fixDiscountPolicy");
+
+        assertThat(discountService).isInstanceOf(DiscountService.class);
+        assertThat(discountPrice).isEqualTo(1000);
+
+        int rateDiscountPrice = discountService.discount(member, 20000, "rateDiscountPolicy");
+
+        assertThat(rateDiscountPrice).isEqualTo(2000);
+    }
+
+    static class DiscountService {
+        private final Map<String, DiscountPolicy> policyMap;
+        private final List<DiscountPolicy> policies;
+
+        public DiscountService(Map<String, DiscountPolicy> policyMap, List<DiscountPolicy> policies) {
+            this.policyMap = policyMap;
+            this.policies = policies;
+            System.out.println("policyMap = " + policyMap);
+            System.out.println("policies = " + policies);
+        }
+
+        public int discount(Member member, int price, String discountCode) {
+            DiscountPolicy discountPolicy = policyMap.get(discountCode);
+            return discountPolicy.discount(member, price);
+        }
+    }
+}
+```
+
+### 스프링 빈 자동, 수동의 올바른 실무 운영 기준
+
+설정 정보를 기반으로 구성하는 부분과 실제 동작하는 부분을 명확하게 나누는것이 이상적이지만, 빈이 많아 설정 정보가 커지면 설정 정보관리에 부담이 커진다. 그리고 자동으로 빈 등록을 사용하더라도 OCP, DIP를
+지킬 수 있다.
+
+**수동빈 등록은 언제 사용하는것이 좋은가**
+
+**업무 로직 빈**
+
+- 웹을 지원하는 컨트롤러, 핵심 비즈니스 로직이 있는 서비스, 데이터 계층의 로직을 처리하는 리포지토리
+- 비즈니스 요구사항을 개발할 때 추가되거나 변경된다
+
+**기술 지원 빈**
+
+- 기술적인 문제나 공통관심사(AOP)처리시 주로 사용
+- DB 연결, 공통 로그 처리처럼 업무 로직을 지원하기 위한 하부기술 및 공통 기술
+
+애플리케이션에 광범위하게 영향을 미치는 기술 지원 객체는 수동 빈으로 등록하여 설정 정보에 바로 나타나게 하는것이 유지보수하기 좋다.
+
+**수동으로 빈을 등록할 경우**
+
+```java
+
+@Configuration
+public class DiscountPolicyConfig {
+    @Bean
+    public DiscountPolicy rateDiscountPolicy() {
+        return new RateDsicountPolicy();
+    }
+    
+    @Bean
+    public DiscountPolicy fixDiscountPolicy() {
+        return new FixDiscountPolicy();
+    }
+}
+```
+
+**자동으로 빈을 등록할 경우**
+
+다음과 같이 특정 패키지에 같이 묶어둔다.
+- discount(폴더)
+  - DiscountPolicy.java
+  - FixDiscountPolicy.java
+  - RateDiscountPolicy.java
+
+-> 어떤 방식을 사용하든 결과적으로 한눈에 파악할 수 있어야 한다.
+
+스프링 부트가 자동으로 등록하는 빈을 제외한 직접 기술 지원 객체를 스프링 빈으로 등록한다면, 수동으로 등록해서 명확하게 드러내는것이 좋다.
