@@ -1366,3 +1366,80 @@ public class DiscountPolicyConfig {
 -> 어떤 방식을 사용하든 결과적으로 한눈에 파악할 수 있어야 한다.
 
 스프링 부트가 자동으로 등록하는 빈을 제외한 직접 기술 지원 객체를 스프링 빈으로 등록한다면, 수동으로 등록해서 명확하게 드러내는것이 좋다.
+
+## Section 8 : 빈 생명주기 콜백
+
+### 빈 생명주기 콜백 시작
+
+```java
+public class NetworkClient {
+    private String url;
+
+    public NetworkClient() {
+        System.out.println("생성자 호출, url = " + url);
+        connect();
+        call("초기화 연결 메세지");
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    public void connect() {
+        System.out.println("connect: " + url);
+    }
+
+    public void call(String msg) {
+        System.out.println("call: " + url + " msg : " + msg);
+    }
+
+    public void disconnect() {
+        System.out.println("close: " + url);
+    }
+}
+```
+
+```java
+public class BeanLifeCycleTest {
+    @Test
+    public void lifeCycleTest() {
+        ConfigurableApplicationContext ac = new AnnotationConfigApplicationContext(LifeCycleConfig.class);
+        NetworkClient client = ac.getBean(NetworkClient.class);
+        ac.close();
+    }
+
+    @Configuration
+    static class LifeCycleConfig {
+        @Bean
+        public NetworkClient networkClient() {
+            NetworkClient networkClient = new NetworkClient();
+            networkClient.setUrl("http://hello-spring.dev");
+            return networkClient;
+        }
+    }
+}
+```
+
+**결과**
+```text
+url = null
+connect: null
+call: null msg : 초기화 연결 메세지
+```
+
+- 생성자 부분을 보면 url정보 없이 connect가 호출된다.
+- 스프링 빈은 객체 생성 후 의존관계 주입이 다 끝난 다음에야 필요한 데이터를 사용할 수 있는 준비가 완료된다.
+
+**스프링 빈의 이벤트 라이프 사이클**
+스프링 컨테이너 생성 -> 스프링 빈 생성 -> 의존관계 주입 -> 초기화 콜백 -> 사용 -> 소멸전 콜백 -> 스프링 종료
+
+- 초기화 콜백 : 빈이 생성되고, 빈의 의존관계 주입이 완료된 후 호출
+- 소멸전 콜백 : 빈이 소멸도기 직전 호출
+
+초기화 콜백을 통해 의존관계 주입이 완료된 시점을 알 수 있다.
+
+> 객체의 생성과 초기화의 분리
+> 생성자는 필수 파라미터만 받고 메모리를 할당해 객체를 생성하는 책임을 가진다.  
+> 반면 초기화는 이러한 생성값을 활용하여 외부 커넥션을 연결하는 등의 무거운 동작을 수행한다.  
+> 따라서 유지보수의 관점에서 생성자에서 이러한 무거운 초기화 작업을 하기보다 생성 부분과 초기화 부분을 명확하게 나누는것이 좋다.
+
