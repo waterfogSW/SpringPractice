@@ -1347,7 +1347,7 @@ public class DiscountPolicyConfig {
     public DiscountPolicy rateDiscountPolicy() {
         return new RateDsicountPolicy();
     }
-    
+
     @Bean
     public DiscountPolicy fixDiscountPolicy() {
         return new FixDiscountPolicy();
@@ -1358,10 +1358,11 @@ public class DiscountPolicyConfig {
 **자동으로 빈을 등록할 경우**
 
 다음과 같이 특정 패키지에 같이 묶어둔다.
+
 - discount(폴더)
-  - DiscountPolicy.java
-  - FixDiscountPolicy.java
-  - RateDiscountPolicy.java
+    - DiscountPolicy.java
+    - FixDiscountPolicy.java
+    - RateDiscountPolicy.java
 
 -> 어떤 방식을 사용하든 결과적으로 한눈에 파악할 수 있어야 한다.
 
@@ -1421,6 +1422,7 @@ public class BeanLifeCycleTest {
 ```
 
 **결과**
+
 ```text
 url = null
 connect: null
@@ -1443,3 +1445,109 @@ call: null msg : 초기화 연결 메세지
 > 반면 초기화는 이러한 생성값을 활용하여 외부 커넥션을 연결하는 등의 무거운 동작을 수행한다.  
 > 따라서 유지보수의 관점에서 생성자에서 이러한 무거운 초기화 작업을 하기보다 생성 부분과 초기화 부분을 명확하게 나누는것이 좋다.
 
+스프링은 크게 3가지 방법으로 빈 생명주기 콜백을 지원한다
+
+- 인터페이스(InitializingBean, DisposableBean)
+- 설정 정보에 초기화 메서드, 종료 메서드 지정
+- @PostConstruct, @PreDestroy
+
+### 인터페이스
+
+**초기화, 소멸 인터페이스**
+
+```text
+public class NetworkClient implements InitializingBean, DisposableBean {
+    ...
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        connect();
+        call("초기화 연결 메시지");
+    }
+
+    @Override
+    public void destroy() throws Exception {
+        disconnect();
+    }
+}
+```
+
+```text
+생성자 호출, url = null
+connect: http://hello-spring.dev
+call: http://hello-spring.dev msg : 초기화 연결 메시지
+21:30:40.792 [Test worker] DEBUG org.springframework.context.annotation.AnnotationConfigApplicationContext - Closing org.springframework.context.annotation.AnnotationConfigApplicationContext@64b0598, started on Sun Jan 16 21:30:40 KST 2022
+close: http://hello-spring.dev
+```
+
+- 스프링 전용 인터페이스로 코드가 스프링 전용 인터페이스에 의존한다
+- 초기화, 소멸 메서드의 이름을 변경할 수 없다.
+- 외부 라이브러리에 적용할 수 없다.
+
+> 매우 초창기에 나온 방법으로 지금은 거의 사용하지 않는다.
+
+### 설정 정보 : 빈 등록 초기화, 소멸 메서드
+
+```text
+    public void init() throws Exception {
+        connect();
+        call("초기화 연결 메시지");
+    }
+
+    public void close() throws Exception {
+        disconnect();
+    }
+```
+
+```java
+public class BeanLifeCycleTest {
+    @Test
+    public void lifeCycleTest() {
+        ConfigurableApplicationContext ac = new AnnotationConfigApplicationContext(LifeCycleConfig.class);
+        NetworkClient client = ac.getBean(NetworkClient.class);
+        ac.close();
+    }
+
+    @Configuration
+    static class LifeCycleConfig {
+        @Bean(initMethod = "init", destroyMethod = "close")
+        public NetworkClient networkClient() {
+            NetworkClient networkClient = new NetworkClient();
+            networkClient.setUrl("http://hello-spring.dev");
+            return networkClient;
+        }
+    }
+}
+```
+
+- 메서드 이름을 자유롭게 줄 수 있다.
+- 스프링 빈이 스프링 코드에 의존하지 않는다
+- 코드를 고칠수 없는 외부 라이브러리에도 사용할 수 있다.
+
+`destroyMethod`속성의 특별한 기능
+- 라이브러리는 대부분 소멸 메서드로 `close`, `shutdown`을 이름으로 사용한다.
+- 이러한 이름의 메서드가 존재하면 메서드를 자동으로 호출한다. 
+- 따라서 직접 스프링 빈으로 등록하면 종료 메서드는 따로 적어주지 않아도 잘 작동한다.
+- 사용하지 않고 싶으면 `destroyMethod = ""`로 사용하면 된다.
+
+### 애노테이션 @PosConstruct, @PreDestroy
+
+```text
+    @PostConstruct
+    public void init() throws Exception {
+        connect();
+        call("초기화 연결 메시지");
+    }
+
+    @PreDestroy
+    public void close() throws Exception {
+        disconnect();
+    }
+```
+
+- 최신 스프링에서 가장 권장하는 방법이다
+- `javax.annotation.PostConstruct` -> 스프링에 종속적인 기술이 아니라 자바 표준이다
+- 컴포넌트 스캔과 잘 어울린다.
+- 외부 라이브러리에는 적용하지 못한다. 따라서 외부라이브러리에 적용해야 하는경우 앞선 빈의 속성 기능을 사용하면 된다.
+
+**정리**
+- PostConstruct, PreDestroy애노테이션을 사용하되, 외부라이브러리를 초기화하거나 종료할경우 Bean의 initMethod, destroyMethod를 사용하자 
