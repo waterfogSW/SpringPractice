@@ -1550,4 +1550,114 @@ public class BeanLifeCycleTest {
 - 외부 라이브러리에는 적용하지 못한다. 따라서 외부라이브러리에 적용해야 하는경우 앞선 빈의 속성 기능을 사용하면 된다.
 
 **정리**
-- PostConstruct, PreDestroy애노테이션을 사용하되, 외부라이브러리를 초기화하거나 종료할경우 Bean의 initMethod, destroyMethod를 사용하자 
+- PostConstruct, PreDestroy애노테이션을 사용하되, 외부라이브러리를 초기화하거나 종료할경우 Bean의 initMethod, destroyMethod를 사용하자
+
+## 빈 스코프
+
+스코프는 빈이 존재할 수 있는 범위를 뜻함.
+
+스프링의 스코프
+- 싱글톤 : 스프링의 시작과 종료까지 유지되는 가장 넓은 범위의 스코프
+- 프로토 타입 : 빈의 생성과 의존관계 주입까지만 관여하고 더이상 관리하지 않는 스코프
+- 웹 관련 스코프
+  - request : 웹 요청이 들어오고 나갈때 까지 유지되는 스코프
+  - session : 웹 세션이 생성되고 종료될 때 까지 유지되는 스코프
+  - application : 웹의 서블릿 컨텍스와 같은 범위로 유지되는 스코프
+
+
+### 프로토타입 스코프 빈
+
+**싱글톤 스코프**
+```java
+public class SingletonTest {
+    @Test
+    void singletonBeanFind() {
+        AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(SingletonBean.class);
+
+        SingletonBean singletonBean1 = ac.getBean(SingletonBean.class);
+        SingletonBean singletonBean2 = ac.getBean(SingletonBean.class);
+
+        Assertions.assertThat(singletonBean1).isSameAs(singletonBean2);
+        ac.close();
+    }
+
+    @Scope("singleton")
+    static class SingletonBean {
+        @PostConstruct
+        public void init() {
+            System.out.println("SingletonBean.init");
+        }
+
+        @PreDestroy
+        public void destroy() {
+            System.out.println("SingletonBean.destroy");
+        }
+    }
+}
+```
+
+```text
+SingletonBean.init
+22:45:58.345 [Test worker] DEBUG org.springframework.context.annotation.AnnotationConfigApplicationContext - Closing org.springframework.context.annotation.AnnotationConfigApplicationContext@5167f57d, started on Mon Jan 17 22:45:58 KST 2022
+SingletonBean.destroy
+```
+
+- 스프링 컨테이너 생성시점에 초기화 메서드 실행
+- 스프링 컨테이너 종료시점에 종료 메서드 실행
+
+**프로토타입 스코프**
+
+```java
+public class ProtoTypeTest {
+    @Test
+    void prototypeBeanFind() {
+        AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(PrototypeBean.class);
+
+        System.out.println("find prototypeBean1");
+        PrototypeBean prototypeBean1 = ac.getBean(PrototypeBean.class);
+
+        System.out.println("find prototypeBean1");
+        PrototypeBean prototypeBean2 = ac.getBean(PrototypeBean.class);
+
+        Assertions.assertThat(prototypeBean1).isNotSameAs(prototypeBean2);
+
+        ac.close();
+    }
+
+    @Scope("prototype")
+    static class PrototypeBean {
+        @PostConstruct
+        public void init() {
+            System.out.println("PrototypeBean.init");
+        }
+
+        @PreDestroy
+        public void destroy() {
+            System.out.println("PrototypeBean.destroy");
+        }
+    }
+}
+```
+
+```text
+find prototypeBean1
+PrototypeBean.init
+find prototypeBean1
+PrototypeBean.init
+22:47:54.521 [Test worker] DEBUG org.springframework.context.annotation.AnnotationConfigApplicationContext - Closing org.springframework.context.annotation.AnnotationConfigApplicationContext@5167f57d, started on Mon Jan 17 22:47:54 KST 2022
+```
+
+- 스프링 빈 조회 시점에 생성 및 초기화 메서드 실행
+- 프로토 타입 빈을 조회 할때마다 완전히 다른 스프링 빈이 생성된다.
+- 스프링 컨테이너가 관리하지 않기때문에 스프링 컨테이너가 종료되더라도 종료 메서드가 실행되지 않는것을 확인할 수 있다.
+
+**정리**
+- 프로토타입 빈은 요청마다 새로 생성된다
+- 스프링 컨테이너는 프로토타입 빈의 생성과 의존관계 주입, 초기화 까지만 관여한다.
+- 종료 메서드가 호출되지 않는다.
+- 따라서 프로토 타입 빈은 빈을 조회한 클라이언트가 관리해야 한다.(종료 메서드를 직접 호출해주어야 한다)
+
+### 프로토타입 스코프 빈 - 싱글톤 빈과 함께 사용시 문제점
+
+
+
