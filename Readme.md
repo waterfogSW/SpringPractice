@@ -1615,7 +1615,7 @@ public class ProtoTypeTest {
 
         System.out.println("find prototypeBean1");
         PrototypeBean prototypeBean1 = ac.getBean(PrototypeBean.class);
-
+      
         System.out.println("find prototypeBean1");
         PrototypeBean prototypeBean2 = ac.getBean(PrototypeBean.class);
 
@@ -1659,5 +1659,121 @@ PrototypeBean.init
 
 ### 프로토타입 스코프 빈 - 싱글톤 빈과 함께 사용시 문제점
 
+```java
+public class SingletonWithPrototypeTest {
+    @Test
+    void prototypeFind() {
+        AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(PrototypeBean.class);
+        PrototypeBean prototypeBean1 = ac.getBean(PrototypeBean.class);
+        prototypeBean1.addCount();
+        assertThat(prototypeBean1.getCount()).isEqualTo(1);
+
+        PrototypeBean prototypeBean2 = ac.getBean(PrototypeBean.class);
+        prototypeBean2.addCount();
+        assertThat(prototypeBean2.getCount()).isEqualTo(1);
+    }
+
+    @Test
+    void singletonClientUsePrototype() {
+        AnnotationConfigApplicationContext ac =
+                new AnnotationConfigApplicationContext(ClientBean.class, PrototypeBean.class);
 
 
+        ClientBean clientBean1 = ac.getBean(ClientBean.class);
+        int count1 = clientBean1.logic();
+        assertThat(count1).isEqualTo(1);
+
+        ClientBean clientBean2 = ac.getBean(ClientBean.class);
+        int count2 = clientBean2.logic();
+        assertThat(count2).isEqualTo(2); // 싱글톤 빈과 함께 유지되기 때문에 프로토 타입 빈은 새로 생성되지 않는다. 
+
+    }
+
+    @Scope("singleton")
+    @RequiredArgsConstructor
+    static class ClientBean {
+        private final PrototypeBean prototypeBean; // 싱글톤 빈의 생성시점에 의존 관계 주입이 발생한다.
+
+        public int logic() {
+            prototypeBean.addCount();
+            return prototypeBean.getCount();
+        }
+    }
+
+    @Scope("prototype")
+    static class PrototypeBean {
+        private int count = 0;
+
+        public void addCount() {
+            count++;
+        }
+
+        public int getCount() {
+            return count;
+        }
+
+        @PostConstruct
+        public void init() {
+            System.out.println("PrototypeBean.init " + this);
+
+        }
+
+        @PreDestroy
+        public void destroy() {
+            System.out.println("PrototypeBean.destroy");
+        }
+    }
+}
+```
+
+스프링은 일반적으로 싱글톤 빈을 사용하므로 싱글톤 빈이 프로토 타입 빈을 사용한다. 싱글톤 빈은 생성 시점에만 의존관계 주입을 받기때문에 프로토타입빈이 
+생성되긴 하지만, 싱글톤 빈과 함께 계속 유지된다.
+
+> 여러 싱글톤 빈에서 프로토타입 빈을 주입받으면 생성시점에 각각 새로 생성된 프로토타입 빈을 주입받는다. 따라서 두 싱글톤 빈의 프로토타입 빈은 다르다.
+
+### Provider를 통한 문제 해결
+
+```text
+    @Scope("singleton")
+    static class ClientBean {
+        @Autowired
+        private ObjectProvider<PrototypeBean> prototypeBeanProvider;
+
+        public int logic() {
+            PrototypeBean prototypeBean = prototypeBeanProvider.getObject();
+            prototypeBean.addCount();
+            return prototypeBean.getCount();
+        }
+    }
+```
+
+- `ObjectProvider.getObject()`를 통해 새로운 프로토 타입 빈이 생성된다.
+- `ObjectProvider`는 스프링 컨테이너를 통해 해당 빈을 찾아서 반환한다.(대신 조회해준다)
+- `ObjectProvider`는 의존성을 조회하는 DL(dependency lookup) 정도의 기능만을 제공한다.
+
+### JSR-330 Provider
+
+자바 표준 컨테이너 Provider
+- `javax.inject:javax.inject:1`라이브러리를 gradle에 추가해야한다. 
+
+```text
+    @Scope("singleton")
+    static class ClientBean {
+        @Autowired
+        private Provider<PrototypeBean> prototypeBeanProvider;
+
+        public int logic() {
+            PrototypeBean prototypeBean = prototypeBeanProvider.get();
+            prototypeBean.addCount();
+            return prototypeBean.getCount();
+        }
+    }
+```
+
+- `get()`메서드 하나로 기능이 매우 단순하다
+- 별도 라이브러리가 필요하다
+- 스프링이 아닌 다른 라이브러리에서도 사용가능
+
+> 실무에서는 싱글톤 빈으로 대부분의 문제를 해결할 수 있기 때문에 프로토타입 빈을 직접적으로 사용하는 일은 매우 드물다.
+> 스프링을 사용하다 보면 자바 표준과 스프링이 제공하는 기능이 겹칠때가 많다. 대부분 스프링이 더 다양하고 편리한 기능을 제공해 주기 때문에,
+> 특별히 다른 컨테이너를 사용할 일이 없으면 스프링이 제공하는 기능을 사용하면 된다.
