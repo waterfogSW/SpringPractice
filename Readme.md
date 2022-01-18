@@ -1742,8 +1742,8 @@ public class SingletonWithPrototypeTest {
         public int logic() {
             PrototypeBean prototypeBean = prototypeBeanProvider.getObject();
             prototypeBean.addCount();
-            return prototypeBean.getCount();
-        }
+            return prototypeBean.ge~~tCount();
+        }~~
     }
 ```
 
@@ -1776,4 +1776,18 @@ public class SingletonWithPrototypeTest {
 
 > 실무에서는 싱글톤 빈으로 대부분의 문제를 해결할 수 있기 때문에 프로토타입 빈을 직접적으로 사용하는 일은 매우 드물다.
 > 스프링을 사용하다 보면 자바 표준과 스프링이 제공하는 기능이 겹칠때가 많다. 대부분 스프링이 더 다양하고 편리한 기능을 제공해 주기 때문에,
-> 특별히 다른 컨테이너를 사용할 일이 없으면 스프링이 제공하는 기능을 사용하면 된다.
+> 특별히 다른 컨테이너를 사용할 일이 없으면 스프링이 제공하는 기능을 사용하면 된다. 스프링은 사실상의 기술 표준이다. (De facto)
+
+### 웹 스코프
+
+- request : HTTP요청마다 별도의 빈 인스턴스가 생성, 요청이 들어오고 나갈때 까지 유지
+- session : HTTP Session과 동일한 생명주기
+- application : 서블릿 컨텍스트와 동일한 생명주기
+- websocket : 웹소켓과 동일한 생명주기
+
+> **웹 환경**  
+> 스프링 부트는 웹라이브러리가 없으면 `AnnotationConfigApplicationContext`를 기반으로, 
+> 있으면`AnnotationConfigServletWebServerApplicationContext`를 기반으로 구동
+
+### Request 스코프
+
